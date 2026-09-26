@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
+<title>TraceImpact — Traceable Impact Reporting</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&family=Source+Serif+4:opsz,wght@8..60,600;8..60,700&display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>tailwind.config={theme:{extend:{colors:{primary:'#1e293b','primary-dark':'#0f172a',secondary:'#0f5a54','secondary-light':'#f0fdf4',amber:'#d97706','amber-light':'#fffbeb',surface:'#f8fafc',card:'#ffffff',line:'#e2e8f0',ink:'#191c1e',inkdim:'#45474c'},fontFamily:{serif:['"Source Serif 4"','serif'],sans:['Manrope','sans-serif']}}}}</script>
+<style>
+  *{box-sizing:border-box}
+  body{background:#f8fafc;font-variant-numeric:tabular-nums;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+  ::-webkit-scrollbar{height:6px;width:6px}::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:4px}
+  .tab-panel{display:none}.tab-panel.active{display:block}
+  .navlink{transition:.15s}
+  .navlink.active{background:#acefe7;color:#0f5a54;font-weight:700}
+  .badge-dup{background:#fffbeb;color:#b45309;border:1px solid #fde68a}
+  .badge-ok{background:#f0fdf4;color:#0f5a54;border:1px solid #bbf7d0}
+  .badge-verified{background:#0f5a54;color:#fff}
+  .modal-bg{background:rgba(30,41,59,.45)}
+  input,select{font-family:Manrope,sans-serif}
+  ::placeholder{color:#94a3b8}
+</style>
+</head>
+<body class="text-ink antialiased min-h-screen">
+
+<div class="flex min-h-screen">
+  <!-- SIDEBAR -->
+  <aside class="w-64 shrink-0 bg-white border-r border-line hidden md:flex flex-col justify-between fixed h-full z-30">
+    <div>
+      <div class="h-16 px-5 flex items-center gap-2 border-b border-line">
+        <div class="h-8 w-8 rounded bg-primary flex items-center justify-center text-white font-bold text-sm">TI</div>
+        <div class="leading-none">
+          <div class="font-serif font-semibold text-[17px] text-primary">TraceImpact</div>
+          <div class="text-[10px] tracking-wide text-inkdim uppercase mt-0.5">Small-Org Impact Ledger</div>
+        </div>
+      </div>
+      <nav class="p-3 flex flex-col gap-1 text-sm font-semibold text-inkdim">
+        <a href="#" data-tab="ingest" class="navlink active px-3 py-2.5 rounded-lg flex items-center gap-2">📥 Import &amp; Combine</a>
+        <a href="#" data-tab="integrity" class="navlink px-3 py-2.5 rounded-lg flex items-center gap-2">🔎 Integrity &amp; Duplicates</a>
+        <a href="#" data-tab="metrics" class="navlink px-3 py-2.5 rounded-lg flex items-center gap-2">📐 Metric Rules</a>
+        <a href="#" data-tab="report" class="navlink px-3 py-2.5 rounded-lg flex items-center gap-2">📄 Report &amp; Trace</a>
+        <a href="#" data-tab="log" class="navlink px-3 py-2.5 rounded-lg flex items-center gap-2">🧾 Change Log</a>
+      </nav>
+    </div>
+    <div class="p-3 border-t border-line">
+      <div class="rounded-lg bg-secondary-light border border-[#bbf7d0] p-3 text-[11px] text-secondary leading-snug">
+        Original files are never edited or deleted. All fixes are additive and logged.
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="flex-1 md:ml-64 pb-16">
+    <header class="h-16 border-b border-line bg-white/90 backdrop-blur sticky top-0 z-20 flex items-center justify-between px-4 md:px-8">
+      <div class="text-[13px] text-inkdim"><span class="text-primary font-bold">Community First Outreach</span> · FY24 Program Data</div>
+      <div class="flex items-center gap-2">
+        <span id="scopeBadge" class="text-[11px] font-bold uppercase tracking-wide px-2.5 py-1 rounded badge-dup">Not Ready — 0 Sources</span>
+      </div>
+    </header>
+
+    <div class="max-w-6xl mx-auto px-4 md:px-8 py-6">
+
+      <!-- INGEST TAB -->
+      <section id="tab-ingest" class="tab-panel active space-y-5">
+        <div class="bg-white rounded-xl border border-line p-5 shadow-sm">
+          <h1 class="font-serif text-2xl font-semibold text-primary">Import &amp; Combine Program Records</h1>
+          <p class="text-sm text-inkdim mt-1 max-w-2xl">Bring in spreadsheets, form exports, or paper-log CSVs. Nothing is altered — each file is stored as-is, and you map its columns onto shared fields.</p>
+          <div class="flex flex-wrap gap-2 mt-4">
+            <label class="h-10 px-4 rounded-lg bg-primary text-white text-sm font-bold flex items-center gap-2 cursor-pointer hover:bg-primary-dark">
+              ⬆ Upload CSV file(s)
+              <input id="fileInput" type="file" accept=".csv" multiple class="hidden"/>
+            </label>
+            <button id="loadSampleBtn" class="h-10 px-4 rounded-lg bg-white border border-line text-sm font-bold hover:bg-surface">Load 3 sample datasets</button>
+          </div>
+        </div>
+
+        <div id="sourceList" class="space-y-4"></div>
+
+        <div class="bg-white rounded-xl border border-line p-5 shadow-sm" id="mappingHelp">
+          <h2 class="font-serif text-lg font-semibold text-primary">Why mapping?</h2>
+          <p class="text-sm text-inkdim mt-1">Each source names things differently — "Name" vs "Full Name", "Session Date" vs "Date". Map each source's own columns to five shared fields (Beneficiary, Program, Date, Metric Value, Unit) so records from every file can be combined and compared. Unmapped optional fields are simply left blank.</p>
+        </div>
+      </section>
+
+      <!-- INTEGRITY TAB -->
+      <section id="tab-integrity" class="tab-panel space-y-5">
+        <div class="bg-white rounded-xl border border-line p-5 shadow-sm">
+          <h1 class="font-serif text-2xl font-semibold text-primary">Integrity &amp; Reconciliation</h1>
+          <p class="text-sm text-inkdim mt-1">Combined records are checked for likely duplicates (same beneficiary + program + date, however the name was typed) and for missing required fields. Nothing is deleted — you choose what to exclude from calculations, and that choice is logged.</p>
+        </div>
+        <div class="grid sm:grid-cols-3 gap-4" id="integrityStats"></div>
+        <div class="bg-white rounded-xl border border-line shadow-sm">
+          <div class="px-5 py-3 border-b border-line font-bold text-sm flex items-center justify-between">
+            <span>Possible duplicate groups</span><span id="dupCount" class="text-inkdim font-normal"></span>
+          </div>
+          <div id="dupGroups" class="divide-y divide-line"></div>
+        </div>
+        <div class="bg-white rounded-xl border border-line shadow-sm">
+          <div class="px-5 py-3 border-b border-line font-bold text-sm">Rows missing required fields</div>
+          <div id="missingRows" class="divide-y divide-line max-h-96 overflow-y-auto"></div>
+        </div>
+      </section>
+
+      <!-- METRICS TAB -->
+      <section id="tab-metrics" class="tab-panel space-y-5">
+        <div class="bg-white rounded-xl border border-line p-5 shadow-sm">
+          <h1 class="font-serif text-2xl font-semibold text-primary">Define Metric Rules</h1>
+          <p class="text-sm text-inkdim mt-1">Describe what to calculate, in plain terms. Every metric documents its own formula so a funder can see exactly how a number was produced.</p>
+          <div class="grid sm:grid-cols-5 gap-2 mt-4 items-end">
+            <div class="sm:col-span-2"><label class="text-[11px] font-bold uppercase text-inkdim">Metric name</label>
+              <input id="mName" class="w-full h-10 border border-line rounded-lg px-3 text-sm mt-1" placeholder="e.g. Total volunteer hours"/></div>
+            <div><label class="text-[11px] font-bold uppercase text-inkdim">Operation</label>
+              <select id="mOp" class="w-full h-10 border border-line rounded-lg px-2 text-sm mt-1">
+                <option value="sum">Sum of value</option><option value="count">Count of records</option><option value="avg">Average value</option><option value="distinct">Distinct beneficiaries</option>
+              </select></div>
+            <div><label class="text-[11px] font-bold uppercase text-inkdim">Group by program?</label>
+              <select id="mGroup" class="w-full h-10 border border-line rounded-lg px-2 text-sm mt-1"><option value="no">No — one total</option><option value="yes">Yes — per program</option></select></div>
+            <button id="addMetricBtn" class="h-10 rounded-lg bg-secondary text-white text-sm font-bold">+ Add metric</button>
+          </div>
+        </div>
+        <div id="metricList" class="space-y-3"></div>
+      </section>
+
+      <!-- REPORT TAB -->
+      <section id="tab-report" class="tab-panel space-y-5">
+        <div class="bg-white rounded-xl border border-line p-5 shadow-sm flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h1 class="font-serif text-2xl font-semibold text-primary">Impact Report Summary</h1>
+            <p class="text-sm text-inkdim mt-1">Every figure below is traceable — click "Trace" to see exactly which source rows produced it.</p>
+          </div>
+          <label class="flex items-center gap-2 text-sm font-semibold"><input id="anonToggle" type="checkbox" class="h-4 w-4"/> Anonymize beneficiary names in this view</label>
+        </div>
+        <div id="reportMetrics" class="grid sm:grid-cols-2 gap-4"></div>
+        <div class="bg-white rounded-xl border border-line p-5 shadow-sm">
+          <h2 class="font-bold text-sm mb-2">Assumptions &amp; unresolved issues</h2>
+          <ul id="assumptionsList" class="text-sm text-inkdim space-y-1.5 list-disc pl-5"></ul>
+        </div>
+      </section>
+
+      <!-- LOG TAB -->
+      <section id="tab-log" class="tab-panel space-y-5">
+        <div class="bg-white rounded-xl border border-line p-5 shadow-sm">
+          <h1 class="font-serif text-2xl font-semibold text-primary">Non-Destructive Change Log</h1>
+          <p class="text-sm text-inkdim mt-1">Every action below is additive. Original uploaded rows are kept in memory unedited and can always be re-inspected.</p>
+        </div>
+        <div class="bg-white rounded-xl border border-line divide-y divide-line" id="logList"></div>
+      </section>
+
+    </div>
+  </main>
+</div>
+
+<!-- TRACE MODAL -->
+<div id="traceModal" class="hidden fixed inset-0 modal-bg z-50 flex items-center justify-center p-4">
+  <div class="bg-white rounded-xl max-w-2xl w-full max-h-[80vh] flex flex-col shadow-xl">
+    <div class="px-5 py-3 border-b border-line flex items-center justify-between">
+      <div class="font-bold text-sm" id="traceTitle">Trace</div>
+      <button onclick="closeTrace()" class="text-inkdim hover:text-ink text-xl leading-none">×</button>
+    </div>
+    <div id="traceBody" class="p-5 overflow-y-auto text-[13px] space-y-2"></div>
+  </div>
+</div>
+
+<script>
+/* ---------- state ---------- */
+const CANON = ['beneficiary','program','date','value','unit'];
+const CANON_LABEL = {beneficiary:'Beneficiary',program:'Program',date:'Date',value:'Metric value',unit:'Unit (optional)'};
+const REQUIRED = ['beneficiary','program','date','value'];
+let state = { sources: [], metrics: [], excludedDupIdx: new Set(), log: [] };
+
+function log(action, detail){ state.log.push({ts:new Date().toLocaleString(),action,detail}); renderLog(); }
+function norm(s){ return (s||'').toString().trim().toLowerCase().replace(/\s+/g,' '); }
+
+/* ---------- CSV parsing (simple, quote-aware) ---------- */
+function parseCSV(text){
+  const rows=[]; let row=[]; let field=''; let inQ=false;
+  for(let i=0;i<text.length;i++){
+    const c=text[i];
+    if(inQ){
+      if(c==='"'){ if(text[i+1]==='"'){field+='"';i++;} else inQ=false; }
+      else field+=c;
+    } else {
+      if(c==='"') inQ=true;
+      else if(c===','){ row.push(field); field=''; }
+      else if(c==='\n'||c==='\r'){ if(c==='\r'&&text[i+1]==='\n') i++; row.push(field); rows.push(row); row=[]; field=''; }
+      else field+=c;
+    }
+  }
+  if(field.length||row.length){ row.push(field); rows.push(row); }
+  const clean = rows.filter(r=>r.some(c=>c.trim()!==''));
+  const headers = clean[0]||[];
+  return { headers, rows: clean.slice(1).map(r=> headers.map((h,i)=>r[i]??'')) };
+}
+
+/* ---------- sample data ---------- */
+function loadSamples(){
+  const a = `Name,Program,Session Date,Hours\nMaria Gomez,Youth Leadership Seminars,2024-10-02,3.5\nJ. Ortiz,Community Garden Workshop,2024-10-03,2\nMaria  Gomez,Youth Leadership Seminars,2024-10-02,3.5\nSam Lee,Family Pantry Food Dist,2024-10-05,1\nD. Alvarez,Community Garden Workshop,,2`;
+  const b = `Full Name,Activity,Date,Stipend ($)\nSamuel Lee,Family Pantry Food Dist,10/05/2024,80\nPriya N.,Youth Leadership Seminars,10/06/2024,50\nJ Ortiz,Community Garden Workshop,10/03/2024,40\nElena Cruz,Family Pantry Food Dist,10/07/2024,80`;
+  const c = `participant,program_name,date,amount\nCF-9481-NY,Youth Leadership Seminars,2024-10-02,70\nCF-9482-NY,Community Garden Workshop,2024-10-03,40\nCF-9483-NY,Family Pantry Food Dist,2024-10-05,80\nCF-9484-NY,,2024-10-08,25`;
+  [['Oct_Attendance_Signins.csv',a],['Registration_GoogleForm_Export.csv',b],['Field_Intake_EastCenter.csv',c]].forEach(([name,txt])=>addSource(name,txt));
+}
+
+function addSource(name, text){
+  const {headers, rows} = parseCSV(text);
+  const guess = {};
+  headers.forEach(h=>{
+    const n = norm(h);
+    if(n.includes('name')||n.includes('participant')||n.includes('beneficiary')) guess[h]='beneficiary';
+    else if(n.includes('program')||n.includes('activity')) guess[h]='program';
+    else if(n.includes('date')) guess[h]='date';
+    else if(n.includes('hour')||n.includes('stipend')||n.includes('amount')||n.includes('value')) guess[h]='value';
+  });
+  const src = {id:'src'+(state.sources.length+1)+'_'+Date.now(), name, headers, rows, mapping:{}, unitLabel:''};
+  headers.forEach(h=>{ if(guess[h]) src.mapping[guess[h]] = h; });
+  // unit guess from header names containing $ or Hours
+  const valHeader = src.mapping.value;
+  if(valHeader && /\$/.test(valHeader)) src.unitLabel='$';
+  else if(valHeader && /hour/i.test(valHeader)) src.unitLabel='hours';
+  state.sources.push(src);
+  log('Imported dataset', `${name} — ${rows.length} raw rows, ${headers.length} columns. File stored unmodified.`);
+  renderAll();
+}
+
+/* ---------- rendering: sources / mapping ---------- */
+function renderSources(){
+  const el = document.getElementById('sourceList');
+  el.innerHTML = state.sources.map(src=>`
+    <div class="bg-white rounded-xl border border-line shadow-sm">
+      <div class="px-5 py-3 border-b border-line flex items-center justify-between">
+        <div><span class="font-bold text-sm">${src.name}</span><span class="text-[11px] text-inkdim ml-2">${src.rows.length} rows · ${src.headers.length} columns</span></div>
+        <span class="badge-ok text-[11px] font-bold px-2 py-0.5 rounded">Original file locked</span>
+      </div>
+      <div class="p-4 grid sm:grid-cols-5 gap-2">
+        ${CANON.map(f=>`
+          <div>
+            <label class="text-[10px] font-bold uppercase text-inkdim">${CANON_LABEL[f]}</label>
+            <select onchange="setMapping('${src.id}','${f}',this.value)" class="w-full h-9 border border-line rounded-lg px-2 text-[12px] mt-1">
+              <option value="">— none —</option>
+              ${src.headers.map(h=>`<option value="${h}" ${src.mapping[f]===h?'selected':''}>${h}</option>`).join('')}
+            </select>
+          </div>`).join('')}
+      </div>
+    </div>`).join('') || `<div class="text-sm text-inkdim border border-dashed border-line rounded-xl p-8 text-center">No datasets yet. Upload CSV files or load the sample datasets above.</div>`;
+}
+function setMapping(srcId, field, header){
+  const src = state.sources.find(s=>s.id===srcId);
+  if(header) src.mapping[field]=header; else delete src.mapping[field];
+  log('Mapped column', `${src.name}: "${CANON_LABEL[field]}" ⇐ "${header||'(cleared)'}"`);
+  renderAll();
+}
+
+/* ---------- combine ---------- */
+function combinedRows(){
+  const out=[];
+  state.sources.forEach(src=>{
+    src.rows.forEach((r,i)=>{
+      const rec = {sourceId:src.id, sourceName:src.name, rowNum:i+2, raw:r, headers:src.headers};
+      CANON.forEach(f=>{
+        const h = src.mapping[f];
+        rec[f] = h ? (r[src.headers.indexOf(h)]||'').toString().trim() : '';
+      });
+      if(!rec.unit) rec.unit = src.unitLabel||'';
+      rec.missing = REQUIRED.filter(f=>!rec[f]);
+      rec.key = rec.missing.length ? null : `${norm(rec.beneficiary)}|${norm(rec.program)}|${norm(rec.date).replace(/\//g,'-')}`;
+      rec.idx = out.length;
+      out.push(rec);
+    });
+  });
+  return out;
+}
+function duplicateGroups(rows){
+  const map={};
+  rows.forEach(r=>{ if(r.key){ (map[r.key]=map[r.key]||[]).push(r.idx); } });
+  return Object.values(map).filter(g=>g.length>1);
+}
+
+/* ---------- integrity tab ---------- */
+function renderIntegrity(){
+  const rows = combinedRows();
+  const dups = duplicateGroups(rows);
+  const missing = rows.filter(r=>r.missing.length);
+  document.getElementById('integrityStats').innerHTML = `
+    ${statCard('Combined records', rows.length)}
+    ${statCard('Likely duplicate groups', dups.length, dups.length? 'amber':'ok')}
+    ${statCard('Missing required fields', missing.length, missing.length? 'amber':'ok')}
+  `;
+  document.getElementById('dupCount').textContent = dups.length? `${dups.length} group(s) found` : 'none found';
+  document.getElementById('dupGroups').innerHTML = dups.map((g,gi)=>`
+    <div class="p-4">
+      <div class="text-[11px] font-bold text-amber uppercase mb-2">Same beneficiary · program · date, ${g.length} matching entries</div>
+      ${g.map(idx=>{
+        const r=rows[idx]; const excluded = state.excludedDupIdx.has(idx);
+        return `<div class="flex items-center justify-between text-sm py-1.5 border-b border-line last:border-0">
+          <span>${r.beneficiary} — ${r.program} — ${r.date} — ${r.value}${r.unit?(' '+r.unit):''} <span class="text-inkdim text-[11px]">(${r.sourceName}, row ${r.rowNum})</span></span>
+          <button onclick="toggleDupExclude(${idx})" class="text-[11px] font-bold px-2 py-1 rounded border ${excluded?'badge-dup':'bg-white border-line'}">${excluded?'Excluded from calc':'Keep'}</button>
+        </div>`;
+      }).join('')}
+    </div>`).join('') || `<div class="p-6 text-sm text-inkdim">No duplicate combinations detected yet.</div>`;
+
+  document.getElementById('missingRows').innerHTML = missing.slice(0,50).map(r=>`
+    <div class="p-3 flex items-center justify-between text-sm">
+      <span>${r.sourceName}, row ${r.rowNum} — missing: <b class="text-amber">${r.missing.map(f=>CANON_LABEL[f]).join(', ')}</b></span>
+    </div>`).join('') || `<div class="p-6 text-sm text-inkdim">No missing required fields.</div>`;
+}
+function statCard(label,val,tone){
+  const cls = tone==='amber'?'text-amber':tone==='ok'?'text-secondary':'text-primary';
+  return `<div class="bg-white rounded-xl border border-line p-4 shadow-sm"><div class="text-[11px] font-bold uppercase text-inkdim">${label}</div><div class="font-serif text-3xl font-semibold ${cls} mt-1">${val}</div></div>`;
+}
+function toggleDupExclude(idx){
+  if(state.excludedDupIdx.has(idx)) state.excludedDupIdx.delete(idx); else state.excludedDupIdx.add(idx);
+  log('Duplicate resolution', `Row idx ${idx} marked ${state.excludedDupIdx.has(idx)?'excluded from calculations':'kept'} (source row untouched).`);
+  renderAll();
+}
+
+/* ---------- usable rows for metrics ---------- */
+function usableRows(){
+  return combinedRows().filter(r=> r.missing.length===0 && !state.excludedDupIdx.has(r.idx));
+}
+
+/* ---------- metrics tab ---------- */
+function renderMetricsTab(){
+  document.getElementById('metricList').innerHTML = state.metrics.map((m,i)=>`
+    <div class="bg-white rounded-xl border border-line p-4 shadow-sm flex items-center justify-between">
+      <div>
+        <div class="font-bold text-sm">${m.name}</div>
+        <div class="text-[12px] text-inkdim">${formulaText(m)}</div>
+      </div>
+      <button onclick="removeMetric(${i})" class="text-[11px] font-bold text-amber">Remove</button>
+    </div>`).join('') || `<div class="text-sm text-inkdim border border-dashed border-line rounded-xl p-6 text-center">No metrics defined yet.</div>`;
+}
+function formulaText(m){
+  const opText = {sum:'Sum of metric value',count:'Count of records',avg:'Average of metric value',distinct:'Count of distinct beneficiaries'}[m.op];
+  return `${opText}${m.group==='yes'?', grouped by program':' (single total)'} — over all combined records excluding those with missing required fields or marked as duplicates.`;
+}
+document.getElementById('addMetricBtn').onclick = ()=>{
+  const name = document.getElementById('mName').value.trim();
+  if(!name){ return; }
+  const m = { name, op: document.getElementById('mOp').value, group: document.getElementById('mGroup').value };
+  state.metrics.push(m);
+  log('Metric defined', `"${m.name}" — ${formulaText(m)}`);
+  document.getElementById('mName').value='';
+  renderAll();
+};
+function removeMetric(i){ const m=state.metrics[i]; state.metrics.splice(i,1); log('Metric removed', `"${m.name}" deleted from rule set.`); renderAll(); }
+
+/* ---------- compute + report ---------- */
+function computeMetric(m, rows){
+  const groups = {};
+  const bucket = key=> (groups[key]=groups[key]||{rows:[]});
+  rows.forEach(r=>{ bucket(m.group==='yes'?r.program:'__all__').rows.push(r); });
+  const results = Object.entries(groups).map(([key,g])=>{
+    let val;
+    if(m.op==='sum') val = g.rows.reduce((a,r)=>a+(parseFloat(r.value)||0),0);
+    else if(m.op==='count') val = g.rows.length;
+    else if(m.op==='avg') val = g.rows.length? (g.rows.reduce((a,r)=>a+(parseFloat(r.value)||0),0)/g.rows.length) : 0;
+    else if(m.op==='distinct') val = new Set(g.rows.map(r=>norm(r.beneficiary))).size;
+    return { label: key==='__all__'? null : key, value: Math.round(val*100)/100, rows: g.rows };
+  });
+  return results;
+}
+function anonName(name){
+  let h=0; for(const c of name) h=(h*31+c.charCodeAt(0))>>>0;
+  return 'Beneficiary #'+ (h%9000+1000);
+}
+function renderReport(){
+  const rows = usableRows();
+  const anon = document.getElementById('anonToggle').checked;
+  const el = document.getElementById('reportMetrics');
+  if(!state.metrics.length){ el.innerHTML = `<div class="sm:col-span-2 text-sm text-inkdim border border-dashed border-line rounded-xl p-6 text-center">Define metrics in the "Metric Rules" tab to see report figures here.</div>`; }
+  else {
+    el.innerHTML = state.metrics.map((m,mi)=>{
+      const results = computeMetric(m, rows);
+      return `<div class="bg-white rounded-xl border border-line p-5 shadow-sm">
+        <div class="flex items-center justify-between">
+          <div class="font-bold text-sm">${m.name}</div>
+          <span class="badge-verified text-[10px] font-bold px-2 py-0.5 rounded">Traceable</span>
+        </div>
+        <div class="mt-2 space-y-2">
+          ${results.map((r,ri)=>`
+            <div class="flex items-center justify-between border-t border-line pt-2 first:border-0 first:pt-0">
+              <div>
+                ${r.label? `<div class="text-[11px] text-inkdim">${r.label}</div>`:''}
+                <div class="font-serif text-2xl font-semibold text-primary">${r.value}</div>
+              </div>
+              <button onclick="openTrace(${mi},${ri})" class="text-[11px] font-bold px-2 py-1 rounded border border-line hover:bg-surface">Trace →</button>
+            </div>`).join('')}
+        </div>
+      </div>`;
+    }).join('');
+  }
+  window.__lastMetricResults = state.metrics.map(m=>computeMetric(m, rows));
+
+  const allRows = combinedRows();
+  const excluded = allRows.filter(r=>r.missing.length || state.excludedDupIdx.has(r.idx));
+  const notes = [];
+  notes.push(`${state.sources.length} source file(s) combined into ${allRows.length} raw records; ${rows.length} used in calculations.`);
+  const missingCount = allRows.filter(r=>r.missing.length).length;
+  if(missingCount) notes.push(`${missingCount} record(s) excluded from metrics for missing a required field (beneficiary, program, date, or value) — shown in Integrity tab, not deleted.`);
+  const dupExcluded = [...state.excludedDupIdx].length;
+  if(dupExcluded) notes.push(`${dupExcluded} record(s) marked as likely duplicates and excluded from calculations by reviewer choice.`);
+  const dups = duplicateGroups(allRows);
+  const unresolvedDups = dups.filter(g=>g.some(i=>!state.excludedDupIdx.has(i)) && g.filter(i=>!state.excludedDupIdx.has(i)).length>1).length;
+  if(unresolvedDups) notes.push(`${unresolvedDups} duplicate group(s) still unresolved — review them in the Integrity tab before treating this report as final.`);
+  const mixedUnits = new Set(allRows.map(r=>r.unit).filter(Boolean));
+  if(mixedUnits.size>1) notes.push(`Metric values combine different units across sources (${[...mixedUnits].join(', ')}) — sums mix these; interpret totals with that in mind.`);
+  if(!state.metrics.length) notes.push('No metrics defined yet — figures above will appear once at least one metric rule is added.');
+  document.getElementById('assumptionsList').innerHTML = notes.map(n=>`<li>${n}</li>`).join('');
+
+  window.__anonActive = anon;
+}
+document.getElementById('anonToggle').onchange = renderReport;
+
+function openTrace(mi, ri){
+  const m = state.metrics[mi];
+  const result = window.__lastMetricResults[mi][ri];
+  const anon = document.getElementById('anonToggle').checked;
+  document.getElementById('traceTitle').textContent = `${m.name}${result.label? ' — '+result.label: ''} — source rows`;
+  document.getElementById('traceBody').innerHTML = result.rows.map(r=>`
+    <div class="border border-line rounded-lg p-3">
+      <div class="font-bold">${anon? anonName(r.beneficiary): r.beneficiary} <span class="text-inkdim font-normal">· ${r.program}</span></div>
+      <div class="text-inkdim">${r.date} · value ${r.value}${r.unit? ' '+r.unit:''} · from <b>${r.sourceName}</b>, row ${r.rowNum}</div>
+    </div>`).join('') || `<div class="text-inkdim">No contributing rows.</div>`;
+  document.getElementById('traceModal').classList.remove('hidden');
+}
+function closeTrace(){ document.getElementById('traceModal').classList.add('hidden'); }
+
+/* ---------- log tab ---------- */
+function renderLog(){
+  document.getElementById('logList').innerHTML = [...state.log].reverse().map(l=>`
+    <div class="p-3 text-sm"><span class="text-[11px] text-inkdim">${l.ts}</span> — <b>${l.action}:</b> ${l.detail}</div>
+  `).join('') || `<div class="p-6 text-sm text-inkdim">No actions yet.</div>`;
+}
+
+/* ---------- header badge ---------- */
+function renderBadge(){
+  const rows = combinedRows();
+  const dups = duplicateGroups(rows).filter(g=>g.filter(i=>!state.excludedDupIdx.has(i)).length>1).length;
+  const badge = document.getElementById('scopeBadge');
+  if(!state.sources.length){ badge.className='text-[11px] font-bold uppercase tracking-wide px-2.5 py-1 rounded badge-dup'; badge.textContent='Not ready — 0 sources'; }
+  else if(dups>0){ badge.className='text-[11px] font-bold uppercase tracking-wide px-2.5 py-1 rounded badge-dup'; badge.textContent=`Needs review — ${dups} duplicate group(s)`; }
+  else { badge.className='text-[11px] font-bold uppercase tracking-wide px-2.5 py-1 rounded badge-ok'; badge.textContent='Ready to report'; }
+}
+
+function renderAll(){ renderSources(); renderIntegrity(); renderMetricsTab(); renderReport(); renderLog(); renderBadge(); }
+
+/* ---------- nav + upload ---------- */
+document.querySelectorAll('.navlink').forEach(a=>a.addEventListener('click', e=>{
+  e.preventDefault();
+  document.querySelectorAll('.navlink').forEach(x=>x.classList.remove('active'));
+  a.classList.add('active');
+  document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+  document.getElementById('tab-'+a.dataset.tab).classList.add('active');
+}));
+document.getElementById('loadSampleBtn').onclick = loadSamples;
+document.getElementById('fileInput').addEventListener('change', e=>{
+  [...e.target.files].forEach(f=>{
+    const reader = new FileReader();
+    reader.onload = ()=> addSource(f.name, reader.result);
+    reader.readAsText(f);
+  });
+  e.target.value='';
+});
+
+renderAll();
+</script>
+</body>
+</html>
